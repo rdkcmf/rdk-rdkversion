@@ -22,10 +22,12 @@
 #include <glib.h>
 #include <string.h>
 #include <string>
+#include <sys/stat.h>
 #include "rdkversion.h"
 
 using namespace std;
 
+#define VERSION_TXT_DIR                  "/"
 #define VERSION_TXT_PATH                 "/version.txt"
 #define VERSION_TAG_IMAGENAME            "imagename:"
 #define VERSION_TAG_BRANCH               "BRANCH="
@@ -73,85 +75,103 @@ unsigned char rdk_version_parse_version(rdk_version_info_t *version_info) {
       parse_error_ = "Empty " VERSION_TXT_PATH " file";
       ret_val = 1;
    } else {
-      string contents((const char *)buffer);
-      if(!rdk_version_value_get(contents, VERSION_TAG_IMAGENAME, &image_name_, "\r\n")) {
-         parse_error_.append(VERSION_TAG_IMAGENAME);
-         parse_error_ += " tag not found, ";
-         ret_val = 1;
-      }
-      if(!rdk_version_value_get(contents, VERSION_TAG_IMAGENAME, &stb_name_, "_\r\n")) {
-         parse_error_.append(VERSION_TAG_IMAGENAME);
-         parse_error_ += " stbname tag not found, ";
-         ret_val = 1;
-      }
-      if(!rdk_version_value_get(contents, VERSION_TAG_BRANCH, &branch_name_, "\r\n")) {
-         parse_error_.append(VERSION_TAG_BRANCH);
-         parse_error_ += " tag not found, ";
-         ret_val = 1;
-      }
-      if(!rdk_version_value_get(contents, VERSION_TAG_VERSION, &version_name_, "\r\n")) {
-         parse_error_.append(VERSION_TAG_VERSION);
-         parse_error_ += " tag not found, ";
-         ret_val = 1;
-      }
-      if(!rdk_version_value_get(contents, VERSION_TAG_YOCTO_VERSION, &yocto_version_name_, "\r\n")) {
-         parse_error_.append(VERSION_TAG_YOCTO_VERSION);
-         parse_error_ += " tag not found, ";
-         ret_val = 1;
-      }
-      if(!rdk_version_value_get(contents, VERSION_TAG_BUILD_TIME, &image_build_time_, "\r\n")) {
-         parse_error_.append(VERSION_TAG_BUILD_TIME);
-         parse_error_ += " tag not found, ";
-         ret_val = 1;
-      }
-      if(!rdk_version_value_get(contents, VERSION_TAG_JENKINS_JOB, &jenkins_job_name_, "\r\n")) {
-         parse_error_.append(VERSION_TAG_JENKINS_JOB);
-         parse_error_ += " tag not found, ";
-         ret_val = 1;
-      }
-      if(!rdk_version_value_get(contents, VERSION_TAG_JENKINS_BUILD_NUMBER, &jenkins_build_number_, "\r\n")) {
-         parse_error_.append(VERSION_TAG_JENKINS_BUILD_NUMBER);
-         parse_error_ += " tag not found, ";
-         ret_val = 1;
-      }
-      if(rdk_version_value_contains(contents, VERSION_TAG_IMAGENAME, "PROD")) {
-         version_info->production_build = 1;
-      }
-      else {
-         version_info->production_build = 0;
-      }
+      struct stat statbuf_dir;
+      struct stat statbuf_path;
 
-      if (!rdk_version_string_create(image_name_, &(version_info->image_name))) {
-         parse_error_ += "image_name malloc() error ";
+      int rc_dir  = stat(VERSION_TXT_DIR, &statbuf_dir);
+      int rc_path = stat(VERSION_TXT_PATH, &statbuf_path);
+
+      // The file is a mount point if the st_dev field returned by stat is different from its directory.
+      if(rc_dir != 0 || rc_path != 0 || statbuf_path.st_dev != statbuf_dir.st_dev) {
+         if(rc_dir != 0) {
+            parse_error_ = "Unable to stat <" VERSION_TXT_DIR ">";
+         } else if(rc_path != 0) {
+            parse_error_ = "Unable to stat <" VERSION_TXT_PATH ">";
+         } else {
+            parse_error_ = "version file is mounted";
+         }
          ret_val = 1;
-      }
-      if (!rdk_version_string_create(stb_name_, &(version_info->stb_name))) {
-         parse_error_ += "stb_name malloc() error ";
-         ret_val = 1;
-      }
-      if (!rdk_version_string_create(branch_name_, &(version_info->branch_name))) {
-         parse_error_ += "branch_name malloc() error ";
-         ret_val = 1;
-      }
-      if (!rdk_version_string_create(version_name_, &(version_info->version_name))) {
-         parse_error_ += "version_name malloc() error ";
-         ret_val = 1;
-      }
-      if (!rdk_version_string_create(yocto_version_name_, &(version_info->yocto_version_name))) {
-         parse_error_ += "yocto_version_name malloc() error ";
-         ret_val = 1;
-      }
-      if (!rdk_version_string_create(image_build_time_, &(version_info->image_build_time))) {
-         parse_error_ += "image_build_name malloc() error ";
-         ret_val = 1;
-      }
-      if (!rdk_version_string_create(jenkins_job_name_, &(version_info->jenkins_job_name))) {
-         parse_error_ += "jenkins_job_name malloc() error ";
-         ret_val = 1;
-      }
-      if (!rdk_version_string_create(jenkins_build_number_, &(version_info->jenkins_build_number))) {
-         parse_error_ += "jenkins_build_number malloc() error ";
-         ret_val = 1;
+      } else {
+         string contents((const char *)buffer);
+         if(!rdk_version_value_get(contents, VERSION_TAG_IMAGENAME, &image_name_, "\r\n")) {
+            parse_error_.append(VERSION_TAG_IMAGENAME);
+            parse_error_ += " tag not found, ";
+            ret_val = 1;
+         }
+         if(!rdk_version_value_get(contents, VERSION_TAG_IMAGENAME, &stb_name_, "_\r\n")) {
+            parse_error_.append(VERSION_TAG_IMAGENAME);
+            parse_error_ += " stbname tag not found, ";
+            ret_val = 1;
+         }
+         if(!rdk_version_value_get(contents, VERSION_TAG_BRANCH, &branch_name_, "\r\n")) {
+            parse_error_.append(VERSION_TAG_BRANCH);
+            parse_error_ += " tag not found, ";
+            ret_val = 1;
+         }
+         if(!rdk_version_value_get(contents, VERSION_TAG_VERSION, &version_name_, "\r\n")) {
+            parse_error_.append(VERSION_TAG_VERSION);
+            parse_error_ += " tag not found, ";
+            ret_val = 1;
+         }
+         if(!rdk_version_value_get(contents, VERSION_TAG_YOCTO_VERSION, &yocto_version_name_, "\r\n")) {
+            parse_error_.append(VERSION_TAG_YOCTO_VERSION);
+            parse_error_ += " tag not found, ";
+            ret_val = 1;
+         }
+         if(!rdk_version_value_get(contents, VERSION_TAG_BUILD_TIME, &image_build_time_, "\r\n")) {
+            parse_error_.append(VERSION_TAG_BUILD_TIME);
+            parse_error_ += " tag not found, ";
+            ret_val = 1;
+         }
+         if(!rdk_version_value_get(contents, VERSION_TAG_JENKINS_JOB, &jenkins_job_name_, "\r\n")) {
+            parse_error_.append(VERSION_TAG_JENKINS_JOB);
+            parse_error_ += " tag not found, ";
+            ret_val = 1;
+         }
+         if(!rdk_version_value_get(contents, VERSION_TAG_JENKINS_BUILD_NUMBER, &jenkins_build_number_, "\r\n")) {
+            parse_error_.append(VERSION_TAG_JENKINS_BUILD_NUMBER);
+            parse_error_ += " tag not found, ";
+            ret_val = 1;
+         }
+         if(rdk_version_value_contains(contents, VERSION_TAG_IMAGENAME, "PROD")) {
+            version_info->production_build = 1;
+         }
+         else {
+            version_info->production_build = 0;
+         }
+
+         if (!rdk_version_string_create(image_name_, &(version_info->image_name))) {
+            parse_error_ += "image_name malloc() error ";
+            ret_val = 1;
+         }
+         if (!rdk_version_string_create(stb_name_, &(version_info->stb_name))) {
+            parse_error_ += "stb_name malloc() error ";
+            ret_val = 1;
+         }
+         if (!rdk_version_string_create(branch_name_, &(version_info->branch_name))) {
+            parse_error_ += "branch_name malloc() error ";
+            ret_val = 1;
+         }
+         if (!rdk_version_string_create(version_name_, &(version_info->version_name))) {
+            parse_error_ += "version_name malloc() error ";
+            ret_val = 1;
+         }
+         if (!rdk_version_string_create(yocto_version_name_, &(version_info->yocto_version_name))) {
+            parse_error_ += "yocto_version_name malloc() error ";
+            ret_val = 1;
+         }
+         if (!rdk_version_string_create(image_build_time_, &(version_info->image_build_time))) {
+            parse_error_ += "image_build_name malloc() error ";
+            ret_val = 1;
+         }
+         if (!rdk_version_string_create(jenkins_job_name_, &(version_info->jenkins_job_name))) {
+            parse_error_ += "jenkins_job_name malloc() error ";
+            ret_val = 1;
+         }
+         if (!rdk_version_string_create(jenkins_build_number_, &(version_info->jenkins_build_number))) {
+            parse_error_ += "jenkins_build_number malloc() error ";
+            ret_val = 1;
+         }
       }
    }
 
